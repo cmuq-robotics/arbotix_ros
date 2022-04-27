@@ -35,6 +35,7 @@ from diagnostic_msgs.msg import *
 
 from ax12 import *
 from controllers import *
+import copy
 
 class FollowController(Controller):
     """ A controller for joint chains, exposing a FollowJointTrajectory action. """
@@ -64,16 +65,28 @@ class FollowController(Controller):
         self.server.start()
 
     def actionCb(self, goal):
-        rospy.loginfo(self.name + ": Action goal recieved.")
+        rospy.loginfo(self.name + ": Action goal RECEIVED.")
         traj = goal.trajectory
 
         if set(self.joints) != set(traj.joint_names):
             for j in self.joints:
                 if j not in traj.joint_names:
-                    msg = "Trajectory joint names does not match action controlled joints." + str(traj.joint_names)
-                    rospy.logerr(msg)
-                    self.server.set_aborted(text=msg)
-                    return
+                    if "_mimic" in j:
+                        msg = "Trajectory joint names does not match action controlled joints for mimic joint." + str(traj.joint_names) + " " + str(j)
+                        rospy.logerr(msg)
+                        # get index of mimicked joint
+                        ix =  traj.joint_names.index(j.replace("_mimic",""))
+                        traj.joint_names.append(j)
+                        # append to each point in the trajectory the reversed position
+                        # only the position is appended, the other values (vel,acc) are not used below
+                        for p in range(len(traj.points)):
+                            traj.points[p].positions = list(traj.points[p].positions)
+                            traj.points[p].positions.append(traj.points[p].positions[ix]*-1)                            
+                    else:
+                        msg = "Trajectory joint names does not match action controlled joints." + str(traj.joint_names) + " " + str(j)
+                        rospy.logerr(msg)
+                        self.server.set_aborted(text=msg)
+                        return
             rospy.logwarn("Extra joints in trajectory")
 
         if not traj.points:
