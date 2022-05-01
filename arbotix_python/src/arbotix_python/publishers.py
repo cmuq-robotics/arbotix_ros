@@ -80,6 +80,8 @@ class JointStatePublisher:
             msg.position = list()
             msg.velocity = list()
             for joint in joints:
+                if "mimic" in joint.name:
+                    continue
                 msg.name.append(joint.name)
                 msg.position.append(joint.jst_position)
                 msg.velocity.append(joint.velocity)
